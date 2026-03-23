@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign Up - EutiForge</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="nav">
+    <div class="container nav-inner">
+      <a href="/" class="nav-brand">EutiForge</a>
+      <div class="nav-links">
+        <a href="/login.html" class="btn btn-secondary btn-sm">Log In</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="auth-page">
+    <div class="auth-card card">
+      <h2>Create Your Account</h2>
+      <div id="alert" class="alert"></div>
+      <div class="auth-note">
+        Want to offer your services as a creator? Contact us at <strong>contact@eutiforge.io</strong> to set up a creator account.
+      </div>
+      <form id="signupForm">
+        <div class="form-group">
+          <label class="form-label" for="name">Full Name</label>
+          <input type="text" id="name" class="form-input" placeholder="John Doe" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="email">Email Address</label>
+          <input type="email" id="email" class="form-input" placeholder="you@example.com" required autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="password">Password</label>
+          <input type="password" id="password" class="form-input" placeholder="Min. 8 characters" required autocomplete="new-password">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="address">Address <span class="text-muted">(optional)</span></label>
+          <input type="text" id="address" class="form-input" placeholder="123 Main St, City, State">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="phone">Phone <span class="text-muted">(optional)</span></label>
+          <input type="tel" id="phone" class="form-input" placeholder="+1-555-000-0000">
+        </div>
+        <button type="submit" id="submitBtn" class="btn btn-primary btn-full">Create Account</button>
+      </form>
+      <div class="auth-links">
+        <a href="/login.html">Already have an account? Log In</a>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script>
+    document.getElementById('signupForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const alertEl = document.getElementById('alert');
+      const btn = document.getElementById('submitBtn');
+
+      btn.disabled = true;
+      btn.textContent = 'Creating account...';
+      alertEl.className = 'alert';
+
+      try {
+        const res = await apiCall('/auth/signup', {
+          method: 'POST',
+          body: JSON.stringify({
+            name: document.getElementById('name').value,
+            email: document.getElementById('email').value,
+            password: document.getElementById('password').value,
+            address: document.getElementById('address').value,
+            phone: document.getElementById('phone').value,
+            isCreator: false
+          })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          alertEl.textContent = data.message;
+          alertEl.className = 'alert alert-error show';
+          btn.disabled = false;
+          btn.textContent = 'Create Account';
+          return;
+        }
+
+        saveSession(data.token, data.user);
+
+        if (data.user.role === 'creator') {
+          window.location.href = '/creator-dashboard.html';
+        } else {
+          window.location.href = '/dashboard.html';
+        }
+      } catch (err) {
+        alertEl.textContent = 'Network error. Please try again.';
+        alertEl.className = 'alert alert-error show';
+        btn.disabled = false;
+        btn.textContent = 'Create Account';
+      }
+    });
+  </script>
+</body>
+</html>

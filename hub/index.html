@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Euti-Challenges — Security Training Platform</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="scanline"></div>
+
+  <header class="header">
+    <div class="logo">
+      <span class="logo-bracket">[</span>
+      <span class="logo-text">EUTI</span>
+      <span class="logo-accent">CHALLENGES</span>
+      <span class="logo-bracket">]</span>
+    </div>
+    <p class="tagline">Select your target. Find the flaws. Write the report.</p>
+  </header>
+
+  <main class="grid" id="challenge-grid">
+    <!-- Populated by JS -->
+  </main>
+
+  <footer class="footer">
+    <div class="terminal-line">
+      <span class="prompt">root@euti:~$</span>
+      <span class="cmd" id="terminal-status">Initializing modules...</span>
+      <span class="cursor">_</span>
+    </div>
+  </footer>
+
+  <script>
+    const ICONS = {
+      eutiforge: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>',
+      eutimart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>',
+      eutibites: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 8h1a4 4 0 0 1 0 8h-1M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8zM6 1v3M10 1v3M14 1v3"/></svg>'
+    };
+
+    const DIFF_COLORS = {
+      'Easy-Medium': { bg: '#0d3320', border: '#22c55e', text: '#4ade80' },
+      'Medium': { bg: '#332800', border: '#eab308', text: '#facc15' },
+      'Medium-Hard': { bg: '#331a00', border: '#f97316', text: '#fb923c' }
+    };
+
+    function renderChallenge(id, ch) {
+      const dc = DIFF_COLORS[ch.difficulty] || DIFF_COLORS['Medium'];
+      const isRunning = ch.status === 'running';
+      const isStarting = ch.status === 'starting';
+
+      return `
+        <div class="card ${isRunning ? 'card--active' : ''}" data-id="${id}">
+          <div class="card-glow"></div>
+          <div class="card-header">
+            <div class="card-icon">${ICONS[id]}</div>
+            <div>
+              <h2 class="card-title">${ch.name}</h2>
+              <span class="card-type">${ch.type}</span>
+            </div>
+            <div class="status-dot ${isRunning ? 'status-dot--on' : ''}"></div>
+          </div>
+          <p class="card-desc">${ch.description}</p>
+          <div class="card-meta">
+            <span class="badge" style="background:${dc.bg}; border-color:${dc.border}; color:${dc.text};">${ch.difficulty}</span>
+            <span class="badge badge--port">:${ch.port}</span>
+          </div>
+          <div class="card-actions">
+            ${isRunning
+              ? `<button class="btn btn--open" onclick="openChallenge('${id}', ${ch.port})">Open in Browser</button>
+                 <button class="btn btn--stop" onclick="stopChallenge('${id}')">Terminate</button>`
+              : `<button class="btn btn--start ${isStarting ? 'btn--loading' : ''}" onclick="startChallenge('${id}')" ${isStarting ? 'disabled' : ''}>
+                   ${isStarting ? 'Deploying...' : 'Deploy Challenge'}
+                 </button>`
+            }
+          </div>
+        </div>
+      `;
+    }
+
+    async function fetchStatus() {
+      const res = await fetch('/api/status');
+      return res.json();
+    }
+
+    async function refreshUI() {
+      const status = await fetchStatus();
+      const grid = document.getElementById('challenge-grid');
+      grid.innerHTML = Object.entries(status).map(([id, ch]) => renderChallenge(id, ch)).join('');
+
+      const running = Object.values(status).filter(c => c.status === 'running');
+      const terminalEl = document.getElementById('terminal-status');
+      if (running.length === 0) {
+        terminalEl.textContent = 'All systems idle. Awaiting deployment orders...';
+      } else {
+        terminalEl.textContent = `Active targets: ${running.map(c => c.name + ' [:' + c.port + ']').join(', ')}`;
+      }
+    }
+
+    async function startChallenge(id) {
+      document.getElementById('terminal-status').textContent = `Deploying ${id}...`;
+      await fetch(`/api/start/${id}`);
+      // Brief delay then refresh
+      setTimeout(refreshUI, 1500);
+      // Refresh again after full startup
+      setTimeout(refreshUI, 5000);
+    }
+
+    async function stopChallenge(id) {
+      document.getElementById('terminal-status').textContent = `Terminating ${id}...`;
+      await fetch(`/api/stop/${id}`);
+      setTimeout(refreshUI, 500);
+    }
+
+    function openChallenge(id, port) {
+      window.open(`http://localhost:${port}`, '_blank');
+    }
+
+    // Initial load
+    refreshUI();
+    // Auto-refresh every 3 seconds
+    setInterval(refreshUI, 3000);
+  </script>
+</body>
+</html>

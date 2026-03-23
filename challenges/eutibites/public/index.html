@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EutiBites — Recipe Sharing & Cooking Community</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/" class="nav-brand">Euti<span>Bites</span></a>
+    <ul class="nav-links" id="nav-links">
+      <li><a href="/recipes">Recipes</a></li>
+      <li id="nav-auth-links"></li>
+    </ul>
+  </nav>
+
+  <section class="hero">
+    <h1>Share Your Flavor, Inspire the World</h1>
+    <p>Join a community of home cooks and food lovers. Discover recipes, share your creations, and learn from the best.</p>
+    <a href="/recipes" class="btn-hero">Browse Recipes</a>
+  </section>
+
+  <div class="container">
+    <h2 class="section-title mt-3">Popular Recipes</h2>
+    <div class="recipe-grid" id="recipe-grid">
+      <!-- Populated by JS -->
+    </div>
+  </div>
+
+  <footer class="footer">
+    <p>EutiBites &copy; 2026 &mdash; Made with love and good ingredients.</p>
+  </footer>
+
+  <script src="/js/app.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      updateNav();
+      try {
+        const res = await fetch('/api/recipes?sort=rating');
+        const recipes = await res.json();
+        const grid = document.getElementById('recipe-grid');
+        grid.innerHTML = recipes.map(r => recipeCard(r)).join('');
+      } catch (e) {
+        console.error('Failed to load recipes', e);
+      }
+    });
+  </script>
+</body>
+</html>

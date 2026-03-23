@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Creator Dashboard - EutiForge</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="nav">
+    <div class="container nav-inner">
+      <a href="/dashboard.html" class="nav-brand">EutiForge</a>
+      <div class="nav-links">
+        <span class="nav-user" id="navUser"></span>
+        <a href="/dashboard.html" class="nav-link">User Dashboard</a>
+        <a href="/admin.html" class="nav-link hidden" id="adminLink">Admin Panel</a>
+        <button onclick="logout()" class="btn btn-secondary btn-sm">Logout</button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="dashboard">
+    <div class="container">
+      <div class="dashboard-header">
+        <h1>Creator Dashboard</h1>
+        <p>Manage incoming requests and your team.</p>
+      </div>
+
+      <div class="tabs">
+        <button class="tab active" data-tab="incoming">Incoming Requests</button>
+        <button class="tab" data-tab="team">Team Management</button>
+      </div>
+
+      <!-- Incoming Requests -->
+      <div id="incomingTab" class="tab-content">
+        <div id="incomingList" class="request-list"></div>
+      </div>
+
+      <!-- Team Management -->
+      <div id="teamTab" class="tab-content hidden">
+        <div class="invite-section">
+          <div class="invite-info">
+            This function invites other creators to help manage your platform. If the email doesn't yet belong to a member of the platform, they will need to create an account using that email and will be automatically added as creators.
+          </div>
+          <div id="inviteAlert" class="alert"></div>
+          <form id="inviteForm">
+            <div class="form-group">
+              <label class="form-label" for="inviteEmail">Email Address</label>
+              <input type="email" id="inviteEmail" class="form-input" placeholder="colleague@example.com" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Send Invitation</button>
+          </form>
+          <div id="inviteResult" class="mt-24"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script>
+    const user = getUser();
+    if (!requireAuth()) throw new Error('redirect');
+    if (user.role !== 'creator' && user.role !== 'admin') {
+      window.location.href = '/dashboard.html';
+      throw new Error('redirect');
+    }
+
+    document.getElementById('navUser').textContent = user.name;
+    if (user.role === 'admin') document.getElementById('adminLink').classList.remove('hidden');
+
+    // --- Tabs ---
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+        tab.classList.add('active');
+        document.getElementById(tab.dataset.tab + 'Tab').classList.remove('hidden');
+      });
+    });
+
+    // --- Load Incoming Requests ---
+    loadIncoming();
+
+    async function loadIncoming() {
+      const res = await apiCall('/creators/dashboard');
+      if (!res.ok) return;
+      const data = await res.json();
+      const list = document.getElementById('incomingList');
+
+      if (data.requests.length === 0) {
+        list.innerHTML = '<div class="empty-state"><p>No incoming requests yet.</p></div>';
+        return;
+      }
+
+      list.innerHTML = data.requests.map(r => `
+        <div class="request-item" style="flex-direction:column;align-items:stretch;cursor:default;">
+          <div class="flex-between mb-16">
+            <div class="request-info">
+              <h4>${escapeHtml(r.title)}</h4>
+              <p>From: ${escapeHtml(r.requester_name)} (${escapeHtml(r.requester_email)})</p>
+            </div>
+            <div class="request-meta">
+              <div class="budget">${escapeHtml(r.budget)}</div>
+              <span class="badge badge-${r.status}">${r.status}</span>
+            </div>
+          </div>
+          <p class="text-sm text-muted">${escapeHtml(r.description)}</p>
+          ${r.status === 'pending' ? `
+            <div class="mt-16" style="display:flex;gap:8px;">
+              <button class="btn btn-success btn-sm" onclick="respondRequest(${r.id}, 'accepted')">Accept</button>
+              <button class="btn btn-danger btn-sm" onclick="respondRequest(${r.id}, 'declined')">Decline</button>
+            </div>
+          ` : ''}
+        </div>
+      `).join('');
+    }
+
+    async function respondRequest(id, status) {
+      const res = await apiCall(`/creators/requests/${id}/respond`, {
+        method: 'POST',
+        body: JSON.stringify({ status })
+      });
+      if (res.ok) loadIncoming();
+    }
+
+    // --- Team Invite ---
+    document.getElementById('inviteForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const alertEl = document.getElementById('inviteAlert');
+      const resultEl = document.getElementById('inviteResult');
+      alertEl.className = 'alert';
+
+      const res = await apiCall('/creators/invite', {
+        method: 'POST',
+        body: JSON.stringify({
+          email: document.getElementById('inviteEmail').value
+        })
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        alertEl.textContent = 'Invitation processed successfully.';
+        alertEl.className = 'alert alert-success show';
+        resultEl.innerHTML = `
+          <div class="card">
+            <h4 class="mb-16">Invitation Result</h4>
+            <div class="detail-field mb-16">
+              <label>Email</label>
+              <span>${escapeHtml(data.email)}</span>
+            </div>
+            <div class="detail-field mb-16">
+              <label>Role</label>
+              <span class="badge badge-creator">${escapeHtml(data.role)}</span>
+            </div>
+            <div class="detail-field">
+              <label>Status</label>
+              <span>${escapeHtml(data.message)}</span>
+            </div>
+          </div>
+        `;
+      } else {
+        alertEl.textContent = data.message;
+        alertEl.className = 'alert alert-error show';
+      }
+    });
+  </script>
+</body>
+</html>

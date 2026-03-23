@@ -1,0 +1,9 @@
+node_modules/
+keys/
+db/*.db
+.env
+
+# Private — DO NOT push
+PRIVATE_DOCS.md
+PLAN.md
+test-vulns.js

@@ -1,0 +1,12 @@
+{
+  "name": "euti-challenges",
+  "version": "1.0.0",
+  "description": "Euti-Challenges — Security Training Platform with 3 deliberately vulnerable web apps",
+  "main": "launcher.js",
+  "scripts": {
+    "start": "node launcher.js",
+    "install-all": "cd challenges/eutiforge && npm install && cd ../eutimart && npm install && cd ../eutibites && npm install"
+  },
+  "keywords": ["security", "pentesting", "ctf", "training", "vulnerable"],
+  "license": "MIT"
+}

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Panel - EutiForge</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="nav">
+    <div class="container nav-inner">
+      <a href="/dashboard.html" class="nav-brand">EutiForge</a>
+      <div class="nav-links">
+        <span class="nav-user" id="navUser"></span>
+        <a href="/dashboard.html" class="nav-link">User Dashboard</a>
+        <a href="/creator-dashboard.html" class="nav-link">Creator Panel</a>
+        <button onclick="logout()" class="btn btn-secondary btn-sm">Logout</button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="dashboard">
+    <div class="container">
+      <div class="dashboard-header">
+        <h1>Admin Panel</h1>
+        <p>Platform administration and user management.</p>
+      </div>
+
+      <div id="statsGrid" class="stats-grid"></div>
+
+      <div class="card">
+        <h3 class="mb-16">User Management</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Phone</th>
+                <th>Joined</th>
+              </tr>
+            </thead>
+            <tbody id="userTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script>
+    const user = getUser();
+    if (!requireAuth()) throw new Error('redirect');
+    if (user.role !== 'admin') {
+      window.location.href = '/dashboard.html';
+      throw new Error('redirect');
+    }
+
+    document.getElementById('navUser').textContent = user.name + ' (Admin)';
+
+    loadDashboard();
+    loadUsers();
+
+    async function loadDashboard() {
+      const res = await apiCall('/admin/dashboard');
+      if (!res.ok) return;
+      const { dashboard } = await res.json();
+
+      document.getElementById('statsGrid').innerHTML = `
+        <div class="stat-card">
+          <div class="stat-value">${dashboard.totalUsers}</div>
+          <div class="stat-label">Total Users</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${dashboard.totalCreators}</div>
+          <div class="stat-label">Active Creators</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${dashboard.totalRequests}</div>
+          <div class="stat-label">Total Requests</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${dashboard.pendingRequests}</div>
+          <div class="stat-label">Pending Requests</div>
+        </div>
+      `;
+    }
+
+    async function loadUsers() {
+      const res = await apiCall('/admin/users');
+      if (!res.ok) return;
+      const { users } = await res.json();
+
+      document.getElementById('userTable').innerHTML = users.map(u => `
+        <tr>
+          <td>${u.id}</td>
+          <td>${escapeHtml(u.name)}</td>
+          <td>${escapeHtml(u.email)}</td>
+          <td><span class="badge badge-${u.role}">${u.role}</span></td>
+          <td>${escapeHtml(u.phone)}</td>
+          <td>${new Date(u.created_at).toLocaleDateString()}</td>
+        </tr>
+      `).join('');
+    }
+  </script>
+</body>
+</html>

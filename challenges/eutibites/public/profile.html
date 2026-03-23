@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Profile — EutiBites</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/" class="nav-brand">Euti<span>Bites</span></a>
+    <ul class="nav-links">
+      <li><a href="/recipes">Recipes</a></li>
+      <li><a href="/dashboard">Dashboard</a></li>
+      <li><a href="/profile">Profile</a></li>
+      <li><a href="#" id="logout-link">Sign Out</a></li>
+    </ul>
+  </nav>
+
+  <div class="container" style="margin-top: 2rem;">
+    <h1 class="section-title">My Profile</h1>
+
+    <div class="profile-card" id="profile-card">
+      <div class="avatar" id="avatar">?</div>
+      <h2 id="display-name">Loading...</h2>
+      <p class="username" id="username"></p>
+      <p class="bio" id="bio"></p>
+
+      <div class="profile-info">
+        <div class="info-row">
+          <span class="info-label">Email</span>
+          <span id="email"></span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Member since</span>
+          <span id="joined"></span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Recipes shared</span>
+          <span id="recipe-count"></span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Active sessions</span>
+          <span id="session-count"></span>
+        </div>
+      </div>
+
+      <div class="mt-3">
+        <h3 style="font-size: 1.1rem; margin-bottom: 0.8rem;">Edit Profile</h3>
+        <div id="edit-msg"></div>
+        <div class="form-group">
+          <label for="edit-displayName">Display Name</label>
+          <input type="text" id="edit-displayName">
+        </div>
+        <div class="form-group">
+          <label for="edit-bio">Bio</label>
+          <textarea id="edit-bio" rows="2" style="width:100%; padding: 0.75rem 1rem; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.95rem; font-family: inherit; background: var(--warm-gray); resize: vertical;"></textarea>
+        </div>
+        <button class="btn btn-primary" id="save-profile-btn" style="max-width: 200px;">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <p>EutiBites &copy; 2026</p>
+  </footer>
+
+  <script src="/js/app.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        window.location.href = '/login?error=Please sign in to view your profile';
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/users/profile', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+
+        if (!res.ok) {
+          window.location.href = '/login?error=Session expired. Please sign in again.';
+          return;
+        }
+
+        const profile = await res.json();
+
+        document.getElementById('avatar').textContent = (profile.displayName || '?')[0].toUpperCase();
+        document.getElementById('display-name').textContent = profile.displayName;
+        document.getElementById('username').textContent = '@' + profile.username;
+        document.getElementById('bio').textContent = profile.bio || 'No bio yet.';
+        document.getElementById('email').textContent = profile.email;
+        document.getElementById('joined').textContent = new Date(profile.joinedAt).toLocaleDateString();
+        document.getElementById('recipe-count').textContent = profile.recipeCount;
+        document.getElementById('session-count').textContent = profile.activeSessions;
+
+        document.getElementById('edit-displayName').value = profile.displayName;
+        document.getElementById('edit-bio').value = profile.bio || '';
+
+      } catch (e) {
+        console.error(e);
+      }
+
+      // Save profile
+      document.getElementById('save-profile-btn').addEventListener('click', async () => {
+        const msgDiv = document.getElementById('edit-msg');
+        const res = await fetch('/api/users/profile', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+          },
+          body: JSON.stringify({
+            displayName: document.getElementById('edit-displayName').value,
+            bio: document.getElementById('edit-bio').value
+          })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          msgDiv.innerHTML = '<div class="success-banner">Profile updated!</div>';
+          // Update local storage
+          const user = JSON.parse(localStorage.getItem('user') || '{}');
+          user.displayName = data.user.displayName;
+          localStorage.setItem('user', JSON.stringify(user));
+          setTimeout(() => window.location.reload(), 600);
+        } else {
+          msgDiv.innerHTML = '<div class="error-banner">' + data.error + '</div>';
+        }
+      });
+
+      // Logout
+      document.getElementById('logout-link').addEventListener('click', async (e) => {
+        e.preventDefault();
+        await fetch('/api/auth/logout', { method: 'POST' });
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/';
+      });
+    });
+  </script>
+</body>
+</html>

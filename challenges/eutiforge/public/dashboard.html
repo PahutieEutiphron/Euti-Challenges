@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - EutiForge</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="nav">
+    <div class="container nav-inner">
+      <a href="/dashboard.html" class="nav-brand">EutiForge</a>
+      <div class="nav-links">
+        <span class="nav-user" id="navUser"></span>
+        <a href="/creator-dashboard.html" class="nav-link hidden" id="creatorLink">Creator Panel</a>
+        <a href="/admin.html" class="nav-link hidden" id="adminLink">Admin Panel</a>
+        <button onclick="logout()" class="btn btn-secondary btn-sm">Logout</button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="dashboard">
+    <div class="container">
+      <div class="dashboard-header">
+        <h1>Dashboard</h1>
+        <p>Browse creators, submit requests, and manage your projects.</p>
+      </div>
+
+      <div class="tabs">
+        <button class="tab active" data-tab="creators">Browse Creators</button>
+        <button class="tab" data-tab="requests">My Requests</button>
+        <button class="tab" data-tab="profile">Profile</button>
+      </div>
+
+      <!-- Browse Creators Tab -->
+      <div id="creatorsTab" class="tab-content">
+        <div class="search-section">
+          <input type="text" id="creatorSearch" class="search-bar" placeholder="Search creators by name or email..."
+            oninput="this.value = this.value.replace(/[^a-zA-Z0-9 @.]/g, '')">
+          <button onclick="searchCreators()" class="btn btn-primary">Search</button>
+        </div>
+        <div id="searchAlert" class="alert"></div>
+        <div id="creatorList" class="creator-grid"></div>
+      </div>
+
+      <!-- My Requests Tab -->
+      <div id="requestsTab" class="tab-content hidden">
+        <div id="requestList" class="request-list"></div>
+      </div>
+
+      <!-- Profile Tab -->
+      <div id="profileTab" class="tab-content hidden">
+        <div class="profile-grid">
+          <div class="card profile-card" id="profileInfo"></div>
+          <div class="card profile-card">
+            <h3 class="mb-16">Change Password</h3>
+            <div id="pwAlert" class="alert"></div>
+            <form id="passwordForm">
+              <div class="form-group">
+                <label class="form-label" for="newPassword">New Password</label>
+                <input type="password" id="newPassword" class="form-input" placeholder="Min. 8 characters" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="confirmPassword">Confirm New Password</label>
+                <input type="password" id="confirmPassword" class="form-input" placeholder="Repeat new password" required>
+              </div>
+              <button type="submit" class="btn btn-primary">Update Password</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Request Form Modal -->
+  <div id="requestModal" class="modal hidden">
+    <div class="modal-content card">
+      <div class="modal-header">
+        <h3>Submit a Request</h3>
+        <button class="modal-close" onclick="closeRequestModal()">&times;</button>
+      </div>
+      <p class="text-muted text-sm mb-16">Sending request to <strong id="modalCreatorName"></strong></p>
+      <div id="reqAlert" class="alert"></div>
+      <form id="requestForm">
+        <input type="hidden" id="reqCreatorId">
+        <div class="form-group">
+          <label class="form-label" for="reqTitle">Project Title</label>
+          <input type="text" id="reqTitle" class="form-input" placeholder="e.g. Logo Design for Startup" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="reqDesc">Description</label>
+          <textarea id="reqDesc" class="form-textarea" placeholder="Describe what you need..." rows="4"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="reqBudget">Budget</label>
+          <input type="text" id="reqBudget" class="form-input" placeholder="e.g. $500">
+        </div>
+        <button type="submit" class="btn btn-primary btn-full">Submit Request</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Request Detail Modal -->
+  <div id="detailModal" class="modal hidden">
+    <div class="modal-content card">
+      <div class="modal-header">
+        <h3>Request Details</h3>
+        <button class="modal-close" onclick="closeDetailModal()">&times;</button>
+      </div>
+      <div id="requestDetail"></div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script>
+    const user = getUser();
+    if (!requireAuth()) throw new Error('redirect');
+
+    document.getElementById('navUser').textContent = user.name;
+    if (user.role === 'creator') document.getElementById('creatorLink').classList.remove('hidden');
+    if (user.role === 'admin') document.getElementById('adminLink').classList.remove('hidden');
+
+    // --- Tab Navigation ---
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+        tab.classList.add('active');
+        const target = tab.dataset.tab;
+        document.getElementById(target + 'Tab').classList.remove('hidden');
+        if (target === 'requests') loadRequests();
+        if (target === 'profile') loadProfile();
+        // Update URL without reload
+        history.replaceState(null, '', `/dashboard.html?tab=${target}`);
+      });
+    });
+
+    // --- Load tab from URL ---
+    const params = new URLSearchParams(window.location.search);
+    const requestId = params.get('requestId');
+    if (requestId) {
+      viewRequest(requestId);
+    }
+    const initTab = params.get('tab');
+    if (initTab) {
+      const tabBtn = document.querySelector(`.tab[data-tab="${initTab}"]`);
+      if (tabBtn) tabBtn.click();
+    }
+
+    // --- Creator Search ---
+    loadCreators();
+
+    async function loadCreators() {
+      const res = await apiCall('/creators');
+      if (res.ok) {
+        const data = await res.json();
+        renderCreators(data.creators);
+      }
+    }
+
+    async function searchCreators() {
+      const query = document.getElementById('creatorSearch').value;
+      const alertEl = document.getElementById('searchAlert');
+      alertEl.className = 'alert';
+
+      const res = await apiCall(`/creators/search?q=${encodeURIComponent(query)}`);
+      const data = await res.json();
+
+      if (data.creators.length === 0 && data.message) {
+        document.getElementById('creatorList').innerHTML = `
+          <div class="empty-state"><p>${data.message}</p></div>
+        `;
+      } else {
+        renderCreators(data.creators);
+      }
+    }
+
+    document.getElementById('creatorSearch').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') searchCreators();
+    });
+
+    function renderCreators(creators) {
+      const grid = document.getElementById('creatorList');
+      if (creators.length === 0) {
+        grid.innerHTML = '<div class="empty-state"><p>No creators found.</p></div>';
+        return;
+      }
+      grid.innerHTML = creators.map(c => `
+        <div class="creator-card">
+          <h3>${escapeHtml(c.name)}</h3>
+          <p>${escapeHtml(c.email)}</p>
+          <button class="btn btn-primary btn-sm" onclick="openRequestModal(${c.id}, '${escapeHtml(c.name)}')">
+            Request Service
+          </button>
+        </div>
+      `).join('');
+    }
+
+    // --- Request Modal ---
+    function openRequestModal(creatorId, creatorName) {
+      document.getElementById('reqCreatorId').value = creatorId;
+      document.getElementById('modalCreatorName').textContent = creatorName;
+      document.getElementById('requestModal').classList.remove('hidden');
+      document.getElementById('reqAlert').className = 'alert';
+      document.getElementById('requestForm').reset();
+    }
+
+    function closeRequestModal() {
+      document.getElementById('requestModal').classList.add('hidden');
+    }
+
+    document.getElementById('requestForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const alertEl = document.getElementById('reqAlert');
+      alertEl.className = 'alert';
+
+      const res = await apiCall('/requests', {
+        method: 'POST',
+        body: JSON.stringify({
+          creatorId: Number(document.getElementById('reqCreatorId').value),
+          userId: user.id,
+          title: document.getElementById('reqTitle').value,
+          description: document.getElementById('reqDesc').value,
+          budget: document.getElementById('reqBudget').value
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        alertEl.textContent = 'Request submitted successfully!';
+        alertEl.className = 'alert alert-success show';
+        setTimeout(closeRequestModal, 1500);
+      } else {
+        alertEl.textContent = data.message;
+        alertEl.className = 'alert alert-error show';
+      }
+    });
+
+    // --- My Requests ---
+    async function loadRequests() {
+      const res = await apiCall('/requests');
+      if (!res.ok) return;
+      const data = await res.json();
+      const list = document.getElementById('requestList');
+
+      if (data.requests.length === 0) {
+        list.innerHTML = '<div class="empty-state"><p>You haven\'t submitted any requests yet.</p></div>';
+        return;
+      }
+
+      list.innerHTML = data.requests.map(r => `
+        <div class="request-item" onclick="viewRequest(${r.id})">
+          <div class="request-info">
+            <h4>${escapeHtml(r.title)}</h4>
+            <p>To: ${escapeHtml(r.creator_name)} &middot; ${new Date(r.created_at).toLocaleDateString()}</p>
+          </div>
+          <div class="request-meta">
+            <div class="budget">${escapeHtml(r.budget)}</div>
+            <span class="badge badge-${r.status}">${r.status}</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // --- View Request Detail ---
+    async function viewRequest(id) {
+      history.replaceState(null, '', `/dashboard.html?requestId=${id}`);
+
+      const res = await apiCall(`/requests/${id}`);
+      if (!res.ok) {
+        const data = await res.json();
+        document.getElementById('requestDetail').innerHTML = `<p class="text-muted">${escapeHtml(data.message)}</p>`;
+        document.getElementById('detailModal').classList.remove('hidden');
+        return;
+      }
+
+      const { request } = await res.json();
+      document.getElementById('requestDetail').innerHTML = `
+        <div class="detail-grid">
+          <div class="detail-field">
+            <label>Request ID</label>
+            <span>${request.id}</span>
+          </div>
+          <div class="detail-field">
+            <label>Status</label>
+            <span class="badge badge-${request.status}">${request.status}</span>
+          </div>
+          <div class="detail-field">
+            <label>Title</label>
+            <span>${escapeHtml(request.title)}</span>
+          </div>
+          <div class="detail-field">
+            <label>Budget</label>
+            <span>${escapeHtml(request.budget)}</span>
+          </div>
+          <div class="detail-field">
+            <label>Requester</label>
+            <span>${escapeHtml(request.user_name)} (${escapeHtml(request.user_email)})</span>
+          </div>
+          <div class="detail-field">
+            <label>Creator</label>
+            <span>${escapeHtml(request.creator_name)} (${escapeHtml(request.creator_email)})</span>
+          </div>
+          <div class="detail-field">
+            <label>Requester Address</label>
+            <span>${escapeHtml(request.user_address)}</span>
+          </div>
+          <div class="detail-field">
+            <label>Requester Phone</label>
+            <span>${escapeHtml(request.user_phone)}</span>
+          </div>
+        </div>
+        <div class="mt-16">
+          <label class="form-label">Description</label>
+          <p class="text-sm">${escapeHtml(request.description)}</p>
+        </div>
+        <div class="mt-16">
+          <label class="form-label">Submitted</label>
+          <p class="text-sm text-muted">${new Date(request.created_at).toLocaleString()}</p>
+        </div>
+      `;
+      document.getElementById('detailModal').classList.remove('hidden');
+    }
+
+    function closeDetailModal() {
+      document.getElementById('detailModal').classList.add('hidden');
+      history.replaceState(null, '', '/dashboard.html?tab=requests');
+    }
+
+    // --- Profile ---
+    async function loadProfile() {
+      const res = await apiCall('/profile');
+      if (!res.ok) return;
+      const { user: profile } = await res.json();
+      document.getElementById('profileInfo').innerHTML = `
+        <h3 class="mb-16">Your Profile</h3>
+        <div class="detail-field mb-16">
+          <label>Name</label>
+          <span>${escapeHtml(profile.name)}</span>
+        </div>
+        <div class="detail-field mb-16">
+          <label>Email</label>
+          <span>${escapeHtml(profile.email)}</span>
+        </div>
+        <div class="detail-field mb-16">
+          <label>Role</label>
+          <span class="badge badge-${profile.role}">${profile.role}</span>
+        </div>
+        <div class="detail-field mb-16">
+          <label>Address</label>
+          <span>${escapeHtml(profile.address || 'Not set')}</span>
+        </div>
+        <div class="detail-field mb-16">
+          <label>Phone</label>
+          <span>${escapeHtml(profile.phone || 'Not set')}</span>
+        </div>
+        <div class="detail-field">
+          <label>Member Since</label>
+          <span>${new Date(profile.created_at).toLocaleDateString()}</span>
+        </div>
+      `;
+    }
+
+    // --- Password Change ---
+    document.getElementById('passwordForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const alertEl = document.getElementById('pwAlert');
+      alertEl.className = 'alert';
+
+      const res = await apiCall('/profile/password', {
+        method: 'PUT',
+        body: JSON.stringify({
+          newPassword: document.getElementById('newPassword').value,
+          confirmPassword: document.getElementById('confirmPassword').value
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        alertEl.textContent = data.message;
+        alertEl.className = 'alert alert-success show';
+        document.getElementById('passwordForm').reset();
+      } else {
+        alertEl.textContent = data.message;
+        alertEl.className = 'alert alert-error show';
+      }
+    });
+  </script>
+</body>
+</html>

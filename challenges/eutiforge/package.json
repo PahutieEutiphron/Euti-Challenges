@@ -1,0 +1,17 @@
+{
+  "name": "eutiforge",
+  "version": "2.1.3",
+  "description": "EutiForge - Where Ideas Meet Talent",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "generate-wordlists": "node generate-wordlists.js",
+    "setup": "node generate-wordlists.js && node server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "express": "^4.21.0",
+    "jsonwebtoken": "^9.0.2"
+  }
+}

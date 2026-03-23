@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — EutiBites</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/" class="nav-brand">Euti<span>Bites</span></a>
+    <ul class="nav-links" id="nav-links">
+      <li><a href="/recipes">Recipes</a></li>
+      <li><a href="/dashboard">Dashboard</a></li>
+      <li><a href="/profile">Profile</a></li>
+      <li><a href="#" id="logout-link">Sign Out</a></li>
+    </ul>
+  </nav>
+
+  <div class="dashboard-header">
+    <div class="container" style="padding: 0;">
+      <h1 id="welcome-msg">Welcome back!</h1>
+      <p>Here's what's cooking in your kitchen.</p>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="stats-grid" id="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value" id="stat-recipes">-</div>
+        <div class="stat-label">My Recipes</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-sessions">-</div>
+        <div class="stat-label">Active Sessions</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-community">6</div>
+        <div class="stat-label">Community Recipes</div>
+      </div>
+    </div>
+
+    <h2 class="section-title">My Recipes</h2>
+    <div class="recipe-grid" id="my-recipes"></div>
+
+    <div class="mt-3">
+      <h2 class="section-title">Share a New Recipe</h2>
+      <div style="background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.5rem;">
+        <div id="create-msg"></div>
+        <form id="create-recipe-form">
+          <div class="form-group">
+            <label for="r-title">Recipe Title</label>
+            <input type="text" id="r-title" placeholder="My Amazing Dish" required>
+          </div>
+          <div class="form-group">
+            <label for="r-description">Description</label>
+            <input type="text" id="r-description" placeholder="A brief description of your recipe" required>
+          </div>
+          <div class="form-group">
+            <label for="r-ingredients">Ingredients (comma separated)</label>
+            <input type="text" id="r-ingredients" placeholder="flour, sugar, eggs, butter" required>
+          </div>
+          <div class="form-group">
+            <label for="r-instructions">Instructions</label>
+            <textarea id="r-instructions" rows="3" placeholder="Step by step instructions..." required style="width:100%; padding: 0.75rem 1rem; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.95rem; font-family: inherit; background: var(--warm-gray); resize: vertical;"></textarea>
+          </div>
+          <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+            <div class="form-group" style="flex:1; min-width:120px;">
+              <label for="r-cooktime">Cook Time (min)</label>
+              <input type="number" id="r-cooktime" placeholder="30">
+            </div>
+            <div class="form-group" style="flex:1; min-width:120px;">
+              <label for="r-servings">Servings</label>
+              <input type="number" id="r-servings" placeholder="4">
+            </div>
+            <div class="form-group" style="flex:1; min-width:120px;">
+              <label for="r-category">Category</label>
+              <select id="r-category" style="width:100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--warm-gray);">
+                <option value="Pasta">Pasta</option>
+                <option value="BBQ">BBQ</option>
+                <option value="Curry">Curry</option>
+                <option value="Bread">Bread</option>
+                <option value="Risotto">Risotto</option>
+                <option value="Dessert">Dessert</option>
+                <option value="Salad">Salad</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary" style="max-width: 250px;">Publish Recipe</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <p>EutiBites &copy; 2026</p>
+  </footer>
+
+  <script src="/js/app.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const user = JSON.parse(localStorage.getItem('user') || 'null');
+      const token = localStorage.getItem('token');
+
+      if (!user || !token) {
+        window.location.href = '/login?error=Please sign in to access your dashboard';
+        return;
+      }
+
+      document.getElementById('welcome-msg').textContent = 'Welcome back, ' + user.displayName + '!';
+
+      // Load profile for stats
+      try {
+        const profileRes = await fetch('/api/users/profile', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (profileRes.ok) {
+          const profile = await profileRes.json();
+          document.getElementById('stat-recipes').textContent = profile.recipeCount;
+          document.getElementById('stat-sessions').textContent = profile.activeSessions;
+        }
+      } catch (e) {}
+
+      // Load my recipes
+      try {
+        const recipesRes = await fetch('/api/users/my-recipes', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (recipesRes.ok) {
+          const recipes = await recipesRes.json();
+          const grid = document.getElementById('my-recipes');
+          grid.innerHTML = recipes.length
+            ? recipes.map(r => recipeCard(r)).join('')
+            : '<p style="color: var(--text-muted);">You haven\'t shared any recipes yet. Use the form below to share your first one!</p>';
+        }
+      } catch (e) {}
+
+      // Create recipe form
+      document.getElementById('create-recipe-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const msgDiv = document.getElementById('create-msg');
+
+        const body = {
+          title: document.getElementById('r-title').value,
+          description: document.getElementById('r-description').value,
+          ingredients: document.getElementById('r-ingredients').value.split(',').map(s => s.trim()),
+          instructions: document.getElementById('r-instructions').value,
+          cookTime: parseInt(document.getElementById('r-cooktime').value) || 0,
+          servings: parseInt(document.getElementById('r-servings').value) || 1,
+          category: document.getElementById('r-category').value
+        };
+
+        const res = await fetch('/api/recipes', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+          },
+          body: JSON.stringify(body)
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+          msgDiv.innerHTML = '<div class="success-banner">Recipe published!</div>';
+          e.target.reset();
+          // Reload my recipes
+          setTimeout(() => window.location.reload(), 800);
+        } else {
+          msgDiv.innerHTML = '<div class="error-banner">' + data.error + '</div>';
+        }
+      });
+
+      // Logout
+      document.getElementById('logout-link').addEventListener('click', async (e) => {
+        e.preventDefault();
+        await fetch('/api/auth/logout', { method: 'POST' });
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/';
+      });
+    });
+  </script>
+</body>
+</html>

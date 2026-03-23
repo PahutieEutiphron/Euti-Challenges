@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign In — EutiBites</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/" class="nav-brand">Euti<span>Bites</span></a>
+    <ul class="nav-links">
+      <li><a href="/recipes">Recipes</a></li>
+      <li><a href="/register">Sign Up</a></li>
+    </ul>
+  </nav>
+
+  <div class="auth-container">
+    <div class="auth-card">
+      <h2>Welcome Back</h2>
+      <p class="subtitle">Sign in to your EutiBites account</p>
+
+      <!-- VULN 2: This div is populated from the ?error= URL parameter -->
+      <div id="error-display"></div>
+      <div id="api-error" class="error-banner hidden"></div>
+
+      <form id="login-form">
+        <div class="form-group">
+          <label for="email">Email Address</label>
+          <input type="email" id="email" name="email" placeholder="you@example.com" required>
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" placeholder="Enter your password" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Sign In</button>
+      </form>
+
+      <div class="auth-footer">
+        <p><a href="#" id="forgot-link">Forgot your password?</a></p>
+        <p class="mt-1">Don't have an account? <a href="/register">Sign up</a></p>
+      </div>
+
+      <!-- Forgot password modal (inline) -->
+      <div id="forgot-section" class="hidden mt-2">
+        <hr style="border-color: var(--border); margin: 1rem 0;">
+        <h3 style="font-size: 1.1rem; margin-bottom: 0.8rem;">Reset Password</h3>
+        <div id="forgot-msg"></div>
+        <div class="form-group">
+          <input type="email" id="forgot-email" placeholder="Enter your email" style="width:100%">
+        </div>
+        <button class="btn btn-secondary" id="forgot-btn" style="width:100%">Send Reset Link</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // ============================================================
+      // VULN 2: Reflected Content Injection via Error Parameter
+      // Sanitizes scripts/event handlers/dangerous tags, but still
+      // reflects HTML content — allows phishing via injected text,
+      // fake forms, styled messages on the legitimate domain.
+      // ============================================================
+      const params = new URLSearchParams(window.location.search);
+      const errorParam = params.get('error');
+      if (errorParam) {
+        const errorDiv = document.getElementById('error-display');
+        // Sanitize: strip dangerous tags and JS execution vectors, but allow basic HTML
+        // Content injection (phishing) still works via <h1>, <a>, <form>, <input>, <p>, etc.
+        let sanitized = errorParam;
+        // Remove dangerous tags entirely
+        sanitized = sanitized.replace(/<\s*\/?\s*(script|img|svg|iframe|object|embed|video|audio|source|math|xmp|noscript|template|base|link|meta)\b[^>]*>/gi, '');
+        // Remove dangerous event handlers — but the filter misses mouse events on anchor tags (bonus XSS)
+        // Blocks: onerror, onload, onfocus, onclick, onsubmit, onchange, oninput, onkeydown, onkeyup, onkeypress
+        sanitized = sanitized.replace(/\s+on(error|load|focus|blur|click|dblclick|submit|change|input|key\w+|resize|scroll|unload|beforeunload|hashchange|popstate|storage|message|online|offline|animat\w+|transition\w+)\s*=\s*("[^"]*"|'[^']*'|[^\s>]*)/gi, '');
+        // Remove javascript: / vbscript: / data: URIs in href/src/action attributes
+        sanitized = sanitized.replace(/(href|src|action)\s*=\s*["']?\s*(javascript|vbscript|data)\s*:/gi, '$1="');
+        errorDiv.innerHTML = '<div class="error-banner">' + sanitized + '</div>';
+      }
+
+      // Login form handler
+      document.getElementById('login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const apiError = document.getElementById('api-error');
+        apiError.classList.add('hidden');
+
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+
+        try {
+          const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+          });
+
+          const data = await res.json();
+
+          if (!res.ok) {
+            apiError.textContent = data.error;
+            apiError.classList.remove('hidden');
+            return;
+          }
+
+          // Store token and redirect
+          localStorage.setItem('token', data.token);
+          localStorage.setItem('user', JSON.stringify(data.user));
+          window.location.href = '/dashboard';
+        } catch (err) {
+          apiError.textContent = 'Connection error. Please try again.';
+          apiError.classList.remove('hidden');
+        }
+      });
+
+      // Forgot password
+      document.getElementById('forgot-link').addEventListener('click', (e) => {
+        e.preventDefault();
+        document.getElementById('forgot-section').classList.toggle('hidden');
+      });
+
+      document.getElementById('forgot-btn').addEventListener('click', async () => {
+        const email = document.getElementById('forgot-email').value;
+        const msgDiv = document.getElementById('forgot-msg');
+
+        if (!email) {
+          msgDiv.innerHTML = '<div class="error-banner">Please enter your email</div>';
+          return;
+        }
+
+        // VULN 4: No rate limiting — can spam this
+        const res = await fetch('/api/auth/forgot-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+        const data = await res.json();
+        msgDiv.innerHTML = '<div class="success-banner">' + data.message + '</div>';
+      });
+    });
+  </script>
+</body>
+</html>
