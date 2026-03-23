@@ -13,24 +13,24 @@ npm run install-all
 node launcher.js
 ```
 
-Open **http://localhost:8080** - the hub lets you deploy and manage each challenge.
+Open **http://localhost:9000** - the hub lets you deploy and manage each challenge.
 
 ## Challenges
 
-### EutiForge — Creative Services Marketplace
+### EutiForge - Creative Services Marketplace
 - **Port:** 3000
 - **Difficulty:** Medium
 - **Type:** Realistic Pentest
 - **Goal:** Gain admin access. Document every vulnerability you find along the way.
 - **Resources:** Wordlists provided in `challenges/eutiforge/data/`
 
-### EutiMart — Premium Tech Store
+### EutiMart - Premium Tech Store
 - **Port:** 4000
 - **Difficulty:** Medium-Hard
 - **Type:** Capture The Flag
 - **Goal:** Find all 4 hidden flags in the format `FLAG{...}`
 
-### EutiBites — Recipe Sharing Community
+### EutiBites - Recipe Sharing Community
 - **Port:** 5000
 - **Difficulty:** Easy-Medium
 - **Type:** Vulnerability Assessment
@@ -44,7 +44,7 @@ Open **http://localhost:8080** - the hub lets you deploy and manage each challen
 
 ## How It Works
 
-The launcher (`node launcher.js`) serves a hub UI on port 8080. From there you can start and stop individual challenges. Each runs in its own process on a dedicated port.
+The launcher (`node launcher.js`) serves a hub UI on port 9000. From there you can start and stop individual challenges. Each runs in its own process on a dedicated port.
 
 You can also run challenges standalone:
 

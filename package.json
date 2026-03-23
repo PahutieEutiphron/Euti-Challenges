@@ -1,7 +1,7 @@
 {
   "name": "euti-challenges",
   "version": "1.0.0",
-  "description": "Euti-Challenges — Security Training Platform with 3 deliberately vulnerable web apps",
+  "description": "Euti-Challenges - Security Training Platform with 3 deliberately vulnerable web apps",
   "main": "launcher.js",
   "scripts": {
     "start": "node launcher.js",

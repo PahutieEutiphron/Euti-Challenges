@@ -1,7 +1,7 @@
 /**
- * Euti-Challenges — Unified Security Challenge Launcher
+ * Euti-Challenges - Unified Security Challenge Launcher
  *
- * Serves a hub UI on port 8080 where students pick a challenge.
+ * Serves a hub UI on port 9000 where students pick a challenge.
  * Each challenge runs in its own child process on a dedicated port.
  *
  * Usage: node launcher.js
@@ -12,7 +12,7 @@ const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 
-const HUB_PORT = 8080;
+const HUB_PORT = 9000;
 
 // Challenge definitions
 const challenges = {
@@ -34,7 +34,7 @@ const challenges = {
     entry: 'server.js',
     description: 'A premium tech gadgets e-commerce store. 4 flags are hidden throughout the application. Find them all.',
     difficulty: 'Medium-Hard',
-    type: 'CTF — Capture The Flag',
+    type: 'CTF - Capture The Flag',
     process: null,
     status: 'stopped'
   },
@@ -104,7 +104,7 @@ function startChallenge(id) {
       console.log(`  [${ch.name}] Process exited with code ${code}`);
     });
 
-    // Timeout — if it doesn't report started in 8 seconds, assume it's up
+    // Timeout - if it doesn't report started in 8 seconds, assume it's up
     setTimeout(() => {
       if (!started) {
         started = true;
