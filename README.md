@@ -13,7 +13,7 @@ npm run install-all
 node launcher.js
 ```
 
-Open **http://localhost:8080** — the hub lets you deploy and manage each challenge.
+Open **http://localhost:8080** - the hub lets you deploy and manage each challenge.
 
 ## Challenges
 
@@ -58,7 +58,7 @@ cd challenges/eutibites && npm install && node server.js     # port 5000
 
 - Use AI tools to help you **learn**, not to solve challenges for you
 - Document findings like a real pentest report: description, location, reproduction steps, impact
-- Don't just test the obvious — explore every feature, endpoint, and header
+- Don't just test the obvious - explore every feature, endpoint, and header
 - If something blocks you, think about whether the block is actually enforced
 
 ## Disclaimer
